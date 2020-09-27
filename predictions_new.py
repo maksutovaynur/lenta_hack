@@ -60,9 +60,9 @@ def predict_stock_quantity(data, product_id, shop_id, current_date, prediction_l
         week_df = week_df[product_df['day_number'] > current_day_id - prev_days_num]
         week_df['cum_sum'] = np.cumsum(week_df['sales_count'])
         week_df['stock_amount'] = week_df['cum_sum'].apply(lambda x: np.sum(week_df['sales_count']) - x)
-        week_df['stock_amount'] += np.random.randint(low=-100, high=100, size=week_df.shape[0])
+        week_df['stock_amount'] += np.random.randint(low=1, high=100, size=week_df.shape[0])
 
-        train_demand = week_df[week_df['chq_date'] <= current_date]['sales_count'].values[-prev_days_num:]
+        train_demand = week_df[week_df['chq_date'] <= current_date]['stock_amount'].values[-prev_days_num:]
 
         model = ExponentialSmoothing(train_demand, trend='mul')
         fit = model.fit()
@@ -72,7 +72,8 @@ def predict_stock_quantity(data, product_id, shop_id, current_date, prediction_l
         print(f"Error on calculation: {e}")
         print(traceback.format_exc())
         predictions = np.zeros(next_days_num)
-    return predictions
+        train_demand = predictions
+    return predictions, train_demand
 
 
 def predict_demand(data, product_id, shop_id, current_date, prediction_length=14):
@@ -97,7 +98,8 @@ def predict_demand(data, product_id, shop_id, current_date, prediction_length=14
         print(f"Error on calculation: {e}")
         print(traceback.format_exc())
         predictions = np.zeros(prediction_length)
-    return predictions
+        train_demand = predictions
+    return predictions, train_demand
 
 
 

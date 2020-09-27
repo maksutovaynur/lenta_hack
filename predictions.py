@@ -70,7 +70,8 @@ def predict_stock_quantity(data, product_id, shop_id, current_date, prediction_l
         print(f"Error on calculation: {e}")
         print(traceback.format_exc())
         predictions = np.zeros(next_days_num)
-    return predictions
+        train_demand = predictions
+    return predictions, train_demand
 
 
 def predict_demand(data, product_id, shop_id, current_date, prediction_length=14):
@@ -95,7 +96,8 @@ def predict_demand(data, product_id, shop_id, current_date, prediction_length=14
         print(f"Error on calculation: {e}")
         print(traceback.format_exc())
         predictions = np.zeros(prediction_length)
-    return predictions
+        train_demand = predictions
+    return predictions, train_demand
 
 
 
