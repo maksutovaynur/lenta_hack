@@ -17,7 +17,7 @@ def read_preproc_cut_transcations_data(path='./hack_data/transactions.parquet',
     """
     trans = pd.read_parquet(path, engine='pyarrow', use_threads=True)
     trans_short = trans.iloc[:rows_number]
-    trans_short = trans_short[['plant', 'client_id', 'chq_date', 'sales_count', 'sales_sum', 'material', 'i_c']]
+    trans_short = trans_short[['plant', 'client_id', 'chq_date', 'sales_count', 'sales_sum', 'material']]
     trans_short = trans_short[trans_short['sales_sum'] >= 0]
 
     if client_ids is not None:
@@ -44,7 +44,7 @@ def predict_stock_quantity(data, product_id, shop_id, current_date, prediction_l
     try:
         le = preprocessing.LabelEncoder()
         product_df = data[data['product_id'] == product_id]
-        product_df = data[data['shop_id'] == shop_id]
+        product_df = product_df[product_df['shop_id'] == shop_id]
         product_df = product_df[['chq_date', 'sales_count']]
         product_df = product_df.sort_values(by=['chq_date'])
         product_df = product_df.groupby(['chq_date'], as_index=False).sum()
@@ -54,7 +54,8 @@ def predict_stock_quantity(data, product_id, shop_id, current_date, prediction_l
         prev_days_num = prediction_length #np.random.randint(low=5, high=14)
         next_days_num = prediction_length
 
-        current_day_id = product_df.loc[product_df['chq_date'] == current_date]['day_number'].values[0]
+        current_day_id = product_df[product_df['chq_date'] <= current_date]['day_number'].values[-1]
+    
         week_df = product_df[product_df['day_number'] <= current_day_id + next_days_num]
         week_df = week_df[product_df['day_number'] > current_day_id - prev_days_num]
         week_df['cum_sum'] = np.cumsum(week_df['sales_count'])
@@ -66,6 +67,7 @@ def predict_stock_quantity(data, product_id, shop_id, current_date, prediction_l
         model = ExponentialSmoothing(train_demand, trend='mul')
         fit = model.fit()
         predictions = fit.forecast(next_days_num)
+        predictions = np.sort(predictions)[::-1]
     except Exception as e:
         print(f"Error on calculation: {e}")
         print(traceback.format_exc())
