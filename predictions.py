@@ -9,14 +9,24 @@ import traceback
 
 
 
-def read_preproc_cut_transcations_data(path='./hack_data/transactions.parquet', rows_number=10**7):
+def read_preproc_cut_transcations_data(path='./hack_data/transactions.parquet', 
+                                       client_ids=None, plants=None, materials=None,
+                                       rows_number=2 * 10**7):
     """
     Read, preprocess transactions.parquet and take first rows_number rows of it.
     """
     trans = pd.read_parquet(path, engine='pyarrow', use_threads=True)
     trans_short = trans.iloc[:rows_number]
-
     trans_short = trans_short[['plant', 'client_id', 'chq_date', 'sales_count', 'sales_sum', 'material']]
+    trans_short = trans_short[trans_short['sales_sum'] >= 0]
+
+    if client_ids is not None:
+        trans_short = trans_short[trans_short['client_id'].isin(client_ids)]
+    if plants is not None:
+        trans_short = trans_short[trans_short['plant'].isin(plants)]
+    if materials is not None:
+        trans_short = trans_short[trans_short['material'].isin(materials)]
+        
 
     le = preprocessing.LabelEncoder()
     trans_short['client_id'] = le.fit_transform(trans_short['client_id'])
@@ -26,22 +36,23 @@ def read_preproc_cut_transcations_data(path='./hack_data/transactions.parquet', 
     return trans_short
     
 
-def predict_stock_quantity(data, product_id, shop_id, current_date):
+def predict_stock_quantity(data, product_id, shop_id, current_date, prediction_length=14):
     """
     Predicts stock quantity for some random next_days_num from the given current_date,
     given prev_days_num days. Emulates one cycle before a new supply.
     """
     try:
         le = preprocessing.LabelEncoder()
-        product_df = data[(data['product_id'] == product_id) & (data['shop_id'] == shop_id)]
+        product_df = data[data['product_id'] == product_id]
+        product_df = data[data['shop_id'] == shop_id]
         product_df = product_df[['chq_date', 'sales_count']]
         product_df = product_df.sort_values(by=['chq_date'])
         product_df = product_df.groupby(['chq_date'], as_index=False).sum()
         product_df['day_number'] = le.fit_transform(product_df['chq_date'])
 
-        np.random.seed(42)
-        prev_days_num = np.random.randint(low=5, high=14)
-        next_days_num = np.random.randint(low=2, high=18)
+#         np.random.seed(42)
+        prev_days_num = prediction_length #np.random.randint(low=5, high=14)
+        next_days_num = prediction_length
 
         current_day_id = product_df.loc[product_df['chq_date'] == current_date]['day_number'].values[0]
         week_df = product_df[product_df['day_number'] <= current_day_id + next_days_num]
@@ -58,7 +69,7 @@ def predict_stock_quantity(data, product_id, shop_id, current_date):
     except Exception as e:
         print(f"Error on calculation: {e}")
         print(traceback.format_exc())
-        predictions = []
+        predictions = np.zeros(next_days_num)
     return predictions
 
 
@@ -68,7 +79,8 @@ def predict_demand(data, product_id, shop_id, current_date, prediction_length=14
     """
     try:
         le = preprocessing.LabelEncoder()
-        product_df = data[(data['product_id'] == product_id) & (data['shop_id'] == shop_id)]
+        product_df = data[data['product_id'] == product_id]
+        product_df = product_df[product_df['shop_id'] == shop_id]
         product_df = product_df[['chq_date', 'sales_count']]
         product_df = product_df.sort_values(by=['chq_date'])
         product_df = product_df.groupby(['chq_date'], as_index=False).sum()
@@ -82,5 +94,9 @@ def predict_demand(data, product_id, shop_id, current_date, prediction_length=14
     except Exception as e:
         print(f"Error on calculation: {e}")
         print(traceback.format_exc())
-        predictions = []
+        predictions = np.zeros(prediction_length)
     return predictions
+
+
+
+
